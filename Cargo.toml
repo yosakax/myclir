@@ -7,11 +7,14 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.75"
-crossterm = "0.26.1"
+crossterm = { version = "0.27.0", features = ["event-stream"] }
+futures = "0.3.30"
 itertools = "0.11.0"
 lazy_static = "1.4.0"
-diesel = { version = "*", features = ["mysql"] }
+dotenv = "0.15.0"
 rand = "0.8.5"
-ratatui = "0.24.0"
+ratatui = "0.25.0"
 ratatui-textarea = "0.4.0"
 tiberius = "0.12.2"
+tokio = { version = "1.35.1", features = ["full"] }
+sqlx = { version = "0.7", features = [ "runtime-tokio", "mysql", "macros" ] }

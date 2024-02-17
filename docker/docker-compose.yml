@@ -30,6 +30,8 @@ services:
     networks:
       - myclir-network
     command: mysql -hmysql -uuser -ppassword db
+    volumes:
+      - ./:/mnt/
 
 networks:
   myclir-network:
