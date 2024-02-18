@@ -263,23 +263,33 @@ pub async fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<
                         _ => {}
                     }
                 }
-                Mode::Normal => match key_event.code {
-                    KeyCode::Char('i') => {
+                Mode::Normal => match (key_event.code, app.popup_command) {
+                    (KeyCode::Char('i'), false) => {
                         app.mode = Mode::Insert;
                     }
-                    KeyCode::Char(':') => {
-                        app.is_popup = true;
+                    (KeyCode::Char(':'), false) => {
+                        app.popup_command = true;
                     }
-                    KeyCode::Esc => {
+                    (KeyCode::Esc, _) => {
+                        app.popup_command = false;
                         app.is_popup = false;
                     }
-                    KeyCode::Char('o') => {
+                    (KeyCode::Char('o'), false) => {
                         app.mode = Mode::Insert;
                         app.text.push(String::new());
                         app.cursor.x = app.cursor.base_x;
                         app.cursor.y += 1;
                         app.line_number += 1;
                     }
+                    _ => {}
+                },
+                Mode::Command => match key_event.code {
+                    KeyCode::Esc => {
+                        app.command_input.clear();
+                        app.popup_command = false;
+                        app.mode = Mode::Normal;
+                    }
+                    KeyCode::Char(char_input) => app.command_input.push(char_input),
                     _ => {}
                 },
             }

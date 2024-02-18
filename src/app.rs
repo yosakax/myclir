@@ -14,6 +14,7 @@ pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 pub enum Mode {
     Normal,
     Insert,
+    Command,
 }
 
 /// Application.
@@ -33,6 +34,8 @@ pub struct App {
     pub completion: Completion,
     pub window_number: usize,
     pub table_components: TableComponent,
+    pub popup_command: bool,
+    pub command_input: String,
 }
 
 impl App {
@@ -53,6 +56,8 @@ impl App {
             completion: Completion::new(),
             window_number: 1,
             table_components: TableComponent::new(),
+            popup_command: false,
+            command_input: String::new(),
         };
         Ok(app)
     }

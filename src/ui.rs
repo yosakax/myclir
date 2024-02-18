@@ -216,34 +216,6 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         app.edit_area = (layout[0][0].width, layout[0][0].height);
     }
 
-    // // left
-    // let items: Vec<ListItem> = app
-    //     .databases
-    //     .items
-    //     .iter()
-    //     .map(|i| {
-    //         let lines = vec![Line::from(i.to_owned())];
-    //         ListItem::new(lines).style(Style::default().fg(Color::White).bg(Color::Black))
-    //     })
-    //     .collect();
-
-    // let items = List::new(items)
-    //     .block(Block::default().borders(Borders::ALL).title("List"))
-    //     .highlight_style(
-    //         Style::default()
-    //             .bg(Color::LightGreen)
-    //             .add_modifier(Modifier::BOLD),
-    //     )
-    //     .highlight_style(
-    //         Style::default()
-    //             .bg(Color::LightGreen)
-    //             .add_modifier(Modifier::BOLD),
-    //     )
-    //     .highlight_symbol(">> ");
-
-    // frame.render_stateful_widget(items, layout[0][0], &mut ListState::default());
-
-    // upper right
     let texts: Vec<ListItem> = app
         .text
         .iter()
@@ -255,12 +227,10 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let editor_title = match app.mode {
         Mode::Normal => "Normal Mode",
         Mode::Insert => "Insert Mode",
+        Mode::Command => "Command Mode",
     };
     let text_list =
         List::new(texts).block(Block::default().borders(Borders::ALL).title(editor_title));
-
-    frame.render_widget(text_list, layout[0][0]);
-    frame.set_cursor(app.cursor.x, app.cursor.y);
 
     // lower right
     app.table_components.items = app.result.to_owned();
@@ -275,6 +245,8 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         frame,
         layout[0][1],
     );
+
+    // completion
     if app.is_popup {
         // popup block
         let block = Block::default().bg(Color::Gray);
@@ -283,7 +255,23 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             Paragraph::new(app.completion.list.iter().join("\n")).wrap(Wrap { trim: true });
         frame.render_widget(Clear, area);
         frame.render_widget(paragraph.clone().block(block), area);
+    } else {
+        app.cursor.x = app.cursor.base_x;
+        app.cursor.y = app.cursor.base_y;
     }
 
+    // command window
+    if app.popup_command {
+        let area = centered_rect(10, 10, frame.size());
+        let paragraph =
+            Paragraph::new(Text::raw(app.command_input.as_str())).wrap(Wrap { trim: true });
+        let block = Block::default().bg(Color::Green);
+        frame.render_widget(paragraph.clone().block(block), area);
+        app.cursor.x = area.x;
+        app.cursor.y = area.y;
+    }
+
+    frame.render_widget(text_list, layout[0][0]);
+    frame.set_cursor(app.cursor.x, app.cursor.y);
     render_title(frame, title_area)
 }
