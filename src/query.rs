@@ -19,7 +19,7 @@ pub fn run_query(query: &str) -> Result<Vec<Vec<String>>, Error> {
 pub async fn establish_connection() -> std::result::Result<MySqlPool, Box<dyn std::error::Error>> {
     let database_url = "mysql://user:password@mysql:3306/db";
     let pool = MySqlPool::connect_lazy(database_url)?;
-    let ret = pool.execute("SHOW databases;").await.unwrap();
+    // let ret = pool.execute("SHOW databases;").await?;
 
     Ok(pool)
 }

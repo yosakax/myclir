@@ -5,7 +5,9 @@ use crate::app::{App, AppResult, Mode};
 use crossterm;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use itertools::Itertools;
-use sqlx::{Column, Executor, Row};
+use sqlx::encode::IsNull;
+use sqlx::types::Decimal;
+use sqlx::{Column, Executor, Row, TypeInfo};
 
 /// Handles the key events and updates the state of [`App`].
 pub async fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
@@ -70,7 +72,7 @@ pub async fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<
                                 app.text[app.line_number]
                                     .insert((app.cursor.x - app.cursor.base_x) as usize, ' ');
                             }
-                            app.cursor.x = app.cursor.x + 2;
+                            app.cursor.x += 2;
                         }
                         (KeyCode::Backspace, KeyModifiers::NONE) => {
                             app.is_popup = false;
@@ -122,49 +124,110 @@ pub async fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<
                         }
                         (KeyCode::F(5), _) => {
                             app.result = vec![vec!["Runnning".to_string()]];
-                            if app.text[0].is_empty() {
+                            if app.text[0].is_empty() && app.text.len() == 1 {
                                 app.result = vec![vec!["No query input.".to_string()]];
                             } else {
                                 let queries = app.text.join(" ").trim().to_string();
+                                // run_query();
                                 let queries: Vec<&str> = queries.split(';').collect();
                                 let mut result = vec![];
                                 for &query in queries.iter() {
                                     if !query.is_empty() {
-                                        let ret = app.conn.fetch_all(query).await?;
-                                        let colmun_names =
-                                            ret[0].columns().iter().map(|x| x.name()).collect_vec();
+                                        let ret = app.conn.fetch_all(query).await;
+                                        match ret {
+                                            Ok(ret) => {
+                                                let colmun_names = ret[0]
+                                                    .columns()
+                                                    .iter()
+                                                    .map(|x| x.name())
+                                                    .collect_vec();
 
-                                        result.push(
-                                            colmun_names
-                                                .iter()
-                                                .map(|x| x.to_string())
-                                                .collect_vec(),
-                                        );
-                                        let column_types = ret[0]
-                                            .columns()
-                                            .iter()
-                                            .map(|x| x.type_info().to_string())
-                                            .collect_vec();
+                                                result.push(
+                                                    colmun_names
+                                                        .iter()
+                                                        .map(|x| x.to_string())
+                                                        .collect_vec(),
+                                                );
+                                                let column_types = ret[0]
+                                                    .columns()
+                                                    .iter()
+                                                    .map(|x| x.type_info().name().to_string())
+                                                    .collect_vec();
 
-                                        for row in ret.iter() {
-                                            let mut tmp = vec![];
-                                            for i in 0..column_types.len() {
-                                                let col_name = colmun_names[i];
-                                                let col_type = column_types[i].clone();
-                                                match col_type.as_str() {
-                                                    "INT" | "BIGINT" => {
-                                                        let val: i64 = row.get(col_name);
-                                                        tmp.push(val.to_string());
+                                                for row in ret.iter() {
+                                                    let mut tmp = vec![];
+                                                    for i in 0..column_types.len() {
+                                                        let col_name = colmun_names[i];
+                                                        let col_type = column_types[i].clone();
+                                                        match col_type.as_str() {
+                                                            "INT" | "BIGINT" => {
+                                                                match row
+                                                                    .try_get::<i64, &str>(col_name)
+                                                                    .is_ok()
+                                                                {
+                                                                    true => {
+                                                                        let val: i64 =
+                                                                            row.get(col_name);
+                                                                        tmp.push(val.to_string());
+                                                                    }
+                                                                    false => {
+                                                                        tmp.push(
+                                                                            "NULL".to_string(),
+                                                                        );
+                                                                    }
+                                                                }
+                                                            }
+                                                            "DECIMAL" => {
+                                                                match row
+                                                                    .try_get::<Decimal, &str>(
+                                                                        col_name,
+                                                                    )
+                                                                    .is_ok()
+                                                                {
+                                                                    true => {
+                                                                        let val: Decimal =
+                                                                            row.get(col_name);
+                                                                        tmp.push(val.to_string());
+                                                                    }
+                                                                    false => {
+                                                                        tmp.push(
+                                                                            "NULL".to_string(),
+                                                                        );
+                                                                    }
+                                                                }
+                                                            }
+                                                            _ => {
+                                                                match row
+                                                                    .try_get::<String, &str>(
+                                                                        col_name,
+                                                                    )
+                                                                    .is_ok()
+                                                                {
+                                                                    true => {
+                                                                        let val: String =
+                                                                            row.get(col_name);
+                                                                        tmp.push(val.to_string());
+                                                                    }
+                                                                    false => {
+                                                                        tmp.push(
+                                                                            "NULL".to_string(),
+                                                                        );
+                                                                    }
+                                                                }
+                                                                // let val = row.get(col_name);
+                                                                // tmp.push(val);
+                                                            }
+                                                        }
                                                     }
-                                                    _ => {
-                                                        let val = row.get(col_name);
-                                                        tmp.push(val);
-                                                    }
+                                                    result.push(tmp);
                                                 }
+                                                result.push(vec![]);
                                             }
-                                            result.push(tmp);
+                                            Err(e) => {
+                                                result = vec![vec![e.to_string()]];
+                                                break;
+                                            }
                                         }
-                                        result.push(vec![]);
                                     }
                                 }
                                 app.result = result.clone();

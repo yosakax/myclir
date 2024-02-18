@@ -37,9 +37,9 @@ pub struct App {
 
 impl App {
     /// Constructs a new instance of [`App`].
-    pub async fn new() -> Result<Self, ()> {
-        let connection = establish_connection().await.unwrap();
-        let mut app = Self {
+    pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        let connection = establish_connection().await?;
+        let app = Self {
             running: true,
             mode: Mode::Normal,
             is_popup: false,

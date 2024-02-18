@@ -9,7 +9,7 @@ use std::io;
 #[tokio::main]
 async fn main() -> AppResult<()> {
     // Create an application.
-    let mut app = App::new().await.unwrap();
+    let mut app = App::new().await?;
 
     // Initialize the terminal user interface.
     let backend = CrosstermBackend::new(io::stderr());

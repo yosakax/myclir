@@ -264,57 +264,17 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     // lower right
     app.table_components.items = app.result.to_owned();
-    match !app.result.is_empty() {
-        true => {
-            render_borders(
-                "Result Monitor",
-                app.result
-                    .iter()
-                    .map(|vec| vec.iter().join(" | "))
-                    .join("\n")
-                    .as_str(),
-                Borders::ALL,
-                frame,
-                layout[0][1],
-            );
-        }
-        false => {
-            // let selected_style = Style::default().add_modifier(Modifier::REVERSED);
-            // let normal_style = Style::default().bg(Color::Blue);
-            // let header_cells = app.result[0]
-            //     .iter()
-            //     .map(|h| Cell::from(h.as_str()).style(Style::default().fg(Color::Red)));
-
-            // let header = Row::new(header_cells)
-            //     .style(normal_style)
-            //     .height(1)
-            //     .bottom_margin(1);
-
-            // let rows = app.result.iter().skip(1).map(|item| {
-            //     let height = item
-            //         .iter()
-            //         .skip(1)
-            //         .map(|content| content.chars().filter(|c| *c == '\n').count())
-            //         .max()
-            //         .unwrap_or(0)
-            //         + 1;
-            //     let cells = item.iter().map(|c| Cell::from(c.as_str()));
-            //     Row::new(cells).height(height as u16).bottom_margin(1)
-            // });
-
-            // let t = Table::new(rows)
-            //     .header(header)
-            //     .block(Block::default().borders(Borders::ALL).title("Result Table"))
-            //     .highlight_style(selected_style)
-            //     .highlight_symbol(">>")
-            //     .widths(&[
-            //         Constraint::Percentage(50),
-            //         Constraint::Max(30),
-            //         Constraint::Min(10),
-            //     ]);
-            // frame.render_stateful_widget(t, layout[0][1], &mut app.table_components.state);
-        }
-    }
+    render_borders(
+        "Result Monitor",
+        app.result
+            .iter()
+            .map(|vec| vec.iter().join(" | "))
+            .join("\n")
+            .as_str(),
+        Borders::ALL,
+        frame,
+        layout[0][1],
+    );
     if app.is_popup {
         // popup block
         let block = Block::default().bg(Color::Gray);
