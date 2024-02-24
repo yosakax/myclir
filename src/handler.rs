@@ -1,11 +1,8 @@
-use std::string;
-
 #[allow(unused)]
-use crate::app::{App, AppResult, Mode};
+use crate::app::{App, AppResult, Mode, Window};
 use crossterm;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use itertools::Itertools;
-use sqlx::encode::IsNull;
 use sqlx::types::Decimal;
 use sqlx::{Column, Executor, Row, TypeInfo};
 
@@ -16,20 +13,50 @@ pub async fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<
     }
     match key_event.code {
         KeyCode::F(1) => {
-            app.window_number = 0;
+            app.window = Window::Editor;
             app.is_popup = false;
         }
         KeyCode::F(2) => {
-            app.window_number = 1;
+            app.window = Window::Results;
         }
         KeyCode::F(3) => {
-            app.window_number = 2;
+            app.window = Window::Command;
             app.is_popup = false;
+        }
+        KeyCode::Left => {
+            if app.cursor.x > app.cursor.base_x {
+                app.cursor.x -= 1;
+            }
+        }
+        KeyCode::Right => {
+            if app.cursor.x - app.cursor.base_x < app.text[app.line_number].len() as u16 {
+                app.cursor.x += 1;
+            }
+        }
+        KeyCode::Up => {
+            if app.cursor.y > app.cursor.base_y {
+                app.cursor.y -= 1;
+                app.line_number -= 1;
+                app.cursor.x = app
+                    .cursor
+                    .x
+                    .min(app.cursor.base_x + app.text[app.line_number].len() as u16);
+            }
+        }
+        KeyCode::Down => {
+            if app.cursor.y - app.cursor.base_y < app.text.len() as u16 - 1 {
+                app.cursor.y += 1;
+                app.line_number += 1;
+                app.cursor.x = app
+                    .cursor
+                    .x
+                    .min(app.cursor.base_x + app.text[app.line_number].len() as u16);
+            }
         }
         _ => {}
     }
-    match app.window_number {
-        0 => match key_event.code {
+    match app.window {
+        Window::Results => match key_event.code {
             KeyCode::Up => {
                 eprintln!("HERE");
                 app.databases.previous();
@@ -39,7 +66,7 @@ pub async fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<
             }
             _ => {}
         },
-        1 => {
+        Window::Editor => {
             match app.mode {
                 Mode::Insert => {
                     // app.is_popup = false;
@@ -47,10 +74,11 @@ pub async fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<
                         // Exit application on `ESC` or `q`
                         (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
                             app.is_popup = false;
-                            app.text.clear();
-                            app.text.push(String::new());
-                            app.cursor.initialize();
-                            app.line_number = 0;
+                            app.mode = Mode::Normal;
+                            // app.text.clear();
+                            // app.text.push(String::new());
+                            // app.cursor.initialize();
+                            // app.line_number = 0;
                         }
                         (KeyCode::Char('n'), KeyModifiers::CONTROL) => {
                             app.is_popup = true;
@@ -92,38 +120,9 @@ pub async fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<
                                     .remove((app.cursor.x - app.cursor.base_x) as usize);
                             }
                         }
-                        (KeyCode::Left, KeyModifiers::NONE) => {
-                            if app.cursor.x > app.cursor.base_x {
-                                app.cursor.x -= 1;
-                            }
-                        }
-                        (KeyCode::Right, KeyModifiers::NONE) => {
-                            if app.cursor.x - app.cursor.base_x
-                                < app.text[app.line_number].len() as u16
-                            {
-                                app.cursor.x += 1;
-                            }
-                        }
-                        (KeyCode::Up, KeyModifiers::NONE) => {
-                            if app.cursor.y > app.cursor.base_y {
-                                app.cursor.y -= 1;
-                                app.line_number -= 1;
-                                app.cursor.x = app.cursor.x.min(
-                                    app.cursor.base_x + app.text[app.line_number].len() as u16,
-                                );
-                            }
-                        }
-                        (KeyCode::Down, KeyModifiers::NONE) => {
-                            if app.cursor.y - app.cursor.base_y < app.text.len() as u16 - 1 {
-                                app.cursor.y += 1;
-                                app.line_number += 1;
-                                app.cursor.x = app.cursor.x.min(
-                                    app.cursor.base_x + app.text[app.line_number].len() as u16,
-                                );
-                            }
-                        }
                         (KeyCode::F(5), _) => {
                             app.result = vec![vec!["Runnning".to_string()]];
+                            app.is_popup = false;
                             if app.text[0].is_empty() && app.text.len() == 1 {
                                 app.result = vec![vec!["No query input.".to_string()]];
                             } else {
@@ -230,7 +229,8 @@ pub async fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<
                                         }
                                     }
                                 }
-                                app.result = result.clone();
+
+                                app.result = align_result(&mut result);
                             }
                         }
                         (KeyCode::Enter, KeyModifiers::NONE) => {
@@ -273,6 +273,8 @@ pub async fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<
                     (KeyCode::Esc, _) => {
                         app.popup_command = false;
                         app.is_popup = false;
+                        app.cursor.x = app.cursor.base_x;
+                        app.cursor.y = app.cursor.base_y;
                     }
                     (KeyCode::Char('o'), false) => {
                         app.mode = Mode::Insert;
@@ -288,23 +290,62 @@ pub async fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<
                         app.command_input.clear();
                         app.popup_command = false;
                         app.mode = Mode::Normal;
+                        app.cursor.x = app.cursor.base_x;
+                        app.cursor.y = app.cursor.base_y;
                     }
                     KeyCode::Char(char_input) => app.command_input.push(char_input),
                     _ => {}
                 },
             }
         }
-        2 => match key_event.code {
-            KeyCode::Up => {
-                app.table_components.previous();
-            }
-            KeyCode::Down => {
-                app.table_components.next();
-            }
-            _ => {}
-        },
-
-        _ => {}
+        Window::Command => {}
     }
     Ok(())
+}
+
+/// insert dash line between header and values
+fn align_result(result: &mut Vec<Vec<String>>) -> Vec<Vec<String>> {
+    let mut max_length_vec = vec![];
+    let mut end_index_vec = vec![];
+    for i in 1..result.len() {
+        if result[i - 1].len() != result[i].len() {
+            max_length_vec.push(vec![0; result[i - 1].len()]);
+            end_index_vec.push(i - 1);
+        }
+    }
+    let mut start_i = 0;
+    for (idx, &end_i) in end_index_vec.iter().enumerate() {
+        for i in start_i..=end_i {
+            for j in 0..result[i].len() {
+                max_length_vec[idx][j] = max_length_vec[idx][j].max(result[i][j].len() + 5);
+            }
+        }
+        for i in start_i..=end_i {
+            for j in 0..result[i].len() {
+                result[i][j] = result[i][j].clone()
+                    + " "
+                        .repeat(max_length_vec[idx][j] - result[i][j].len())
+                        .as_str();
+            }
+        }
+        start_i = end_i + 1;
+    }
+    let mut result_in_border = vec![];
+    let mut is_new_result = true;
+    for i in 0..result.len() - 1 {
+        result_in_border.push(result[i].clone());
+        if is_new_result {
+            let mut border_vec = vec![];
+            for j in 0..result[i].len() {
+                border_vec.push("-".repeat(result[i][j].len()));
+            }
+            result_in_border.push(border_vec);
+            is_new_result = false;
+        }
+        if result[i].len() != result[i + 1].len() {
+            is_new_result = true;
+        }
+    }
+    result_in_border.push(result.last().unwrap().to_owned());
+    result_in_border
 }

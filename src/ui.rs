@@ -255,9 +255,6 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             Paragraph::new(app.completion.list.iter().join("\n")).wrap(Wrap { trim: true });
         frame.render_widget(Clear, area);
         frame.render_widget(paragraph.clone().block(block), area);
-    } else {
-        app.cursor.x = app.cursor.base_x;
-        app.cursor.y = app.cursor.base_y;
     }
 
     // command window

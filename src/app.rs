@@ -17,6 +17,12 @@ pub enum Mode {
     Command,
 }
 
+pub enum Window {
+    Editor,
+    Results,
+    Command,
+}
+
 /// Application.
 // #[derive(Debug)]
 pub struct App {
@@ -32,7 +38,7 @@ pub struct App {
     pub conn: MySqlPool,
     pub databases: StatefulList<String>,
     pub completion: Completion,
-    pub window_number: usize,
+    pub window: Window,
     pub table_components: TableComponent,
     pub popup_command: bool,
     pub command_input: String,
@@ -54,7 +60,7 @@ impl App {
             conn: connection,
             databases: StatefulList::new(),
             completion: Completion::new(),
-            window_number: 1,
+            window: Window::Editor,
             table_components: TableComponent::new(),
             popup_command: false,
             command_input: String::new(),
